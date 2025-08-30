@@ -48,8 +48,10 @@ class PageContextResponse(BaseModel):
 # ----------------- API 엔드포인트 정의 -----------------
 @app.post("/analyses/batch_comprehensive", response_model=BatchAnalysisResponse)
 async def batch_comprehensive_analysis(
-        # image_files: List[UploadFile] = File(..., description="분석할 개별 이미지 파일 목록"),
+        # image_files: List[UploadFile] = File(..., description="분석할 개별 이미지 파일 목록"), # 제거
         image_ids: str = Form(..., description="각 이미지에 대응되는 고유 ID 목록 (쉼표로 구분된 문자열)"),
+        # 새롭게 추가된 image_urls 매개변수
+        image_urls: str = Form(..., description="이미지 URL 목록 (쉼표로 구분된 문자열)"),
         screenshot_file: UploadFile = File(..., description="페이지 전체 스크롤 캡처 스크린샷"),
         html_content: Optional[str] = Form(None, description="페이지의 전체 HTML 소스 코드"),
         conversation_history: Optional[str] = Form(None, description="이전 대화 기록 (JSON 문자열)"),
@@ -63,6 +65,7 @@ async def batch_comprehensive_analysis(
         # 요청 데이터 전처리
         client_ids_list = [id.strip() for id in image_ids.split(',')]
         # image_bytes_list = [await file.read() for file in image_files]
+        image_urls_list = [url.strip() for url in image_urls.split(',') if url.strip()]
         screenshot_bytes = await screenshot_file.read()
 
         conversation_history_list = []
@@ -72,7 +75,8 @@ async def batch_comprehensive_analysis(
         # AI 분석 서비스의 통합 함수 호출
         page_description, image_results_data, updated_history = await openai_service.analyze_and_generate_response(
             openai_client=openai_client,
-            # image_files=image_bytes_list,
+            # image_files=image_bytes_list, # 제거
+            image_urls=image_urls_list, # 추가
             image_ids=client_ids_list,
             screenshot_file=screenshot_bytes,
             html_content=html_content,

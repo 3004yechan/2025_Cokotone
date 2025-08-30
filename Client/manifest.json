@@ -1,26 +1,28 @@
 {
-    "manifest_version": 3,
-    "name": "A11y Client Demo",
-    "version": "0.1.0",
-    "description": "팝업/패널을 하나의 Client 화면으로 표시하는 MV3 데모",
-    "action": { "default_popup": "Client.html" },
-    "permissions": ["activeTab", "storage", "tts"],
-    "background": { "service_worker": "bg.js" },
-    "commands": {
-      "toggle-panel": {
-        "suggested_key": { "default": "Alt+Shift+K" },
-        "description": "현재 페이지 위에 Client 패널 열기/닫기"
-      }
-    },
-    "content_scripts": [
-      {
-        "matches": ["https://*/*", "http://*/*"],
-        "js": ["content/content.js"],
-        "run_at": "document_idle"
-      }
-    ],
-    "web_accessible_resources": [
-      { "resources": ["Client.html", "Client.css", "Client.js"], "matches": ["<all_urls>"] }
-    ]
+  "manifest_version": 3,
+  "name": "A11y Client Demo",
+  "version": "0.1.0",
+  "description": "팝업/패널을 하나의 Client 화면으로 표시하는 MV3 데모",
+  "action": { "default_popup": "Client.html" },
+  "permissions": ["activeTab", "storage", "tts"],
+  "background": { "service_worker": "bg.js" },
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": { "default": "Alt+Shift+K" },
+      "description": "현재 페이지 위에 Client 패널 열기/닫기"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["Client.html", "Client.css", "Client.js"], "matches": ["<all_urls>"] }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
   }
-  
+}
