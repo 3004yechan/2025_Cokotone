@@ -23,6 +23,9 @@ function togglePanel() {
 chrome.runtime.onMessage.addListener(async (msg) => {
   const { powerOn } = await chrome.storage.local.get("powerOn");
   if (!powerOn) return;
+
+chrome.runtime.onMessage.addListener((msg) => {
+
   if (msg?.type === "TOGGLE_CLIENT_PANEL") togglePanel();
   if (msg?.type === "READ_DEMO_SUMMARY") {
     const text = `이 페이지의 제목은 ${document.title} 입니다.`;
@@ -34,6 +37,7 @@ chrome.runtime.onMessage.addListener(async (msg) => {
 window.addEventListener("message", async (e) => {
   const { powerOn } = await chrome.storage.local.get("powerOn");
   if (!powerOn) return;
+window.addEventListener("message", (e) => {
   const data = e?.data;
   if (!data || typeof data !== "object") return;
   if (data.type === "CLIENT_PANEL_CLOSE" && frame) { frame.remove(); frame = null; }
@@ -43,4 +47,3 @@ window.addEventListener("message", async (e) => {
   }
   if (data.type === "READ_TTS" && chrome.tts) chrome.tts.speak(String(data.text||""), { rate: 1.0 });
 });
-

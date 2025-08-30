@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>A11y Client</title>
+  <link rel="stylesheet" href="Client.css" />
+</head>
+<body>
+  <header class="hdr">
+    <div class="brand"><span class="dot" aria-hidden="true"></span><strong>A11y Client</strong></div>
+    <div class="row">
+      <label class="switch"><input type="checkbox" id="power" checked /><span class="slider"></span></label>
+      <button id="closeBtn" class="close" aria-label="닫기">✕</button>
+    </div>
+  </header>
+
+  <main class="main" id="main">
+    <h1>웹의 맥락을 한 번에 <span>요약·길잡이·대체 텍스트</span></h1>
+    <p class="muted">팝업으로 보거나, Alt+Shift+K 로 현재 페이지 위에 패널로 띄울 수 있어요.</p>
+
+    <div class="btns">
+      <button id="openPanel" class="btn primary">현재 탭에 패널 띄우기</button>
+      <button id="readDemo"  class="btn">현재 페이지 제목 읽기(TTS)</button>
+    </div>
+
+    <section class="panelBox">
+      <h2>패널 데모</h2>
+      <p id="summary" class="muted">패널 모드에서 요약 요청/표시.</p>
+      <label class="row"><input type="checkbox" id="useTTS" checked> TTS 사용</label>
+      <button id="reqSummary" class="btn">현재 페이지 요약 요청</button>
+    </section>
+  </main>
+
+  <footer class="ftr"><small>© <span id="year"></span> A11y Client</small></footer>
+  <script src="Client.js"></script>
+</body>
+</html>
