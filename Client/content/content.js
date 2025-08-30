@@ -93,7 +93,7 @@ async function handleComprehensiveAnalysis() {
     }
   });
   
-  formData.append('image_ids', JSON.stringify(imageIds)); // 서버측 파싱 방식에 따라調整
+  formData.append('image_ids', imageIds.join(',')); // 쉼표로 구분된 문자열로 전송
   if (screenshotBlob) formData.append('screenshot_file', screenshotBlob, 'screenshot.png');
   formData.append('html_content', htmlContent);
 
@@ -139,7 +139,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ payload: "PONG" });
         break;
 
-      case "REQUEST_COMPREhensive_ANALYSIS": // 오타 수정 필요
+      case "REQUEST_COMPREHENSIVE_ANALYSIS": // 오타 수정
         const result = await handleComprehensiveAnalysis();
         sendResponse({ payload: result });
         break;
