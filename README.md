@@ -13,11 +13,7 @@
 
 ## 3\. 시연 영상
 
-*(이곳에 프로젝트의 핵심 기능을 보여주는 GIF 파일이나 유튜브 영상 링크를 삽입하세요.)*
-
-**예시:**
-
-[](https://www.google.com/search?q=https://www.youtube.com/watch%3Fv%3DYOUTUBE_VIDEO_ID)
+[](https://youtu.be/JHOvNbyrmGM)
 
 > 위 이미지를 클릭하면 시연 영상을 확인할 수 있습니다.
 
