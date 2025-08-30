@@ -90,48 +90,72 @@ function getSanitizedHtml() {
  * 페이지 종합 분석을 수행하고 결과를 처리합니다.
  */
 async function handleComprehensiveAnalysis() {
-  // 1. 대체 텍스트가 없는 이미지 찾기 및 ID 부여
+  // 공통 데이터 수집 (스크린샷, HTML)
+  const htmlContent = getSanitizedHtml();
+  const screenshotDataUrl = await chrome.runtime.sendMessage({ type: 'CAPTURE_VISIBLE_TAB' });
+
+  // VALIDATION: 화면 캡처는 두 API 모두에 필수이므로 먼저 확인합니다.
+  if (!screenshotDataUrl?.payload) {
+    console.error("화면 캡처 실패:", screenshotDataUrl?.error);
+    return { page_description: '화면 캡처에 실패하여 분석을 진행할 수 없습니다. 일반 웹페이지에서 다시 시도해주세요.', error: true };
+  }
+  const screenshotBlob = dataURLtoBlob(screenshotDataUrl.payload);
+
+  // 분석할 이미지 찾기
   const imagesToAnalyze = [];
   const imageElements = document.querySelectorAll('img:not([alt]), img[alt=""]');
-  imageElements.forEach((img, i) => {
-    const clientId = `temp-img-${i}`;
-    img.dataset.clientId = clientId;
-    imagesToAnalyze.push({ element: img, clientId, src: img.src });
-  });
 
-  // 2. 데이터 수집 (이미지 Blob, 스크린샷, HTML)
-  const imageBlobs = await Promise.all(imagesToAnalyze.map(img => imageSrcToBlob(img.src)));
-  const screenshotDataUrl = await chrome.runtime.sendMessage({ type: 'CAPTURE_VISIBLE_TAB' });
-  const screenshotBlob = screenshotDataUrl?.payload ? dataURLtoBlob(screenshotDataUrl.payload) : null;
-  const htmlContent = getSanitizedHtml(); // 정제된 HTML 사용
-
-  // 3. FormData 구성
+  const API_BASE_URL = "http://127.0.0.1:8000";
+  let endpoint = '';
   const formData = new FormData();
-  const imageIds = [];
-  
-  imagesToAnalyze.forEach((imgInfo, i) => {
-    const blob = imageBlobs[i];
-    if (blob) {
-      formData.append('image_files', blob, `image_${i}.${blob.type.split('/')[1] || 'png'}`);
-      imageIds.push(imgInfo.clientId);
-    }
-  });
-  
-  formData.append('image_ids', imageIds.join(',')); // 쉼표로 구분된 문자열로 전송
-  if (screenshotBlob) formData.append('screenshot_file', screenshotBlob, 'screenshot.png');
+  formData.append('screenshot_file', screenshotBlob, 'screenshot.png');
   formData.append('html_content', htmlContent);
 
-  // 4. 백엔드 API 요청
+  // 조건부 분기: 분석할 이미지 유무에 따라 엔드포인트와 FormData 구성을 변경합니다.
+  if (imageElements.length === 0) {
+    // Case 1: 이미지가 없으면 /page_context API 호출
+    endpoint = '/analyses/page_context';
+    // formData에는 스크린샷과 HTML만 포함됩니다.
+  } else {
+    // Case 2: 이미지가 있으면 /batch_comprehensive API 호출
+    endpoint = '/analyses/batch_comprehensive';
+    
+    imageElements.forEach((img, i) => {
+      const clientId = `temp-img-${i}`;
+      img.dataset.clientId = clientId;
+      imagesToAnalyze.push({ element: img, clientId, src: img.src });
+    });
+
+    const imageBlobs = await Promise.all(imagesToAnalyze.map(img => imageSrcToBlob(img.src)));
+    const imageIds = [];
+    
+    imagesToAnalyze.forEach((imgInfo, i) => {
+      const blob = imageBlobs[i];
+      if (blob) {
+        formData.append('image_files', blob, `image_${i}.${blob.type.split('/')[1] || 'png'}`);
+        imageIds.push(imgInfo.clientId);
+      }
+    });
+
+    // image_ids가 비어있으면 전송하지 않아 422 오류를 방지합니다.
+    if (imageIds.length > 0) {
+      formData.append('image_ids', imageIds.join(','));
+    } else {
+       // 모든 이미지가 Blob 변환에 실패한 경우, 이미지가 없는 것으로 간주하고 다른 API를 호출합니다.
+       endpoint = '/analyses/page_context';
+    }
+  }
+
+  // API 요청 및 결과 처리
   try {
-    const API_BASE_URL = "http://127.0.0.1:8000";
-    const response = await fetch(`${API_BASE_URL}/analyses/batch_comprehensive`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       body: formData,
     });
-    if (!response.ok) throw new Error(`서버 오류: ${response.status}`);
+    if (!response.ok) throw new Error(`서버 오류: ${response.status} - ${response.statusText}`);
     const result = await response.json();
 
-    // 5. 결과 처리: alt 태그 삽입
+    // batch_comprehensive API의 응답일 경우에만 alt 태그를 처리합니다.
     result.image_results?.forEach(imageResult => {
       const imgElement = document.querySelector(`img[data-client-id="${imageResult.client_id}"]`);
       if (imgElement) {
@@ -142,8 +166,8 @@ async function handleComprehensiveAnalysis() {
     return { page_description: result.page_description };
 
   } catch (error) {
-    console.error("종합 분석 API 요청 실패:", error);
-    return { page_description: `오류가 발생했습니다: ${error.message}` };
+    console.error(`API 요청 실패 (${endpoint}):`, error);
+    return { page_description: `오류가 발생했습니다: ${error.message}`, error: true };
   }
 }
 
