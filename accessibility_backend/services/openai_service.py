@@ -1,5 +1,7 @@
 import base64
 import json
+import asyncio
+import httpx
 from openai import OpenAI
 from typing import Optional, List, Dict
 
@@ -27,11 +29,30 @@ def create_page_analysis_prompt(html_content: str, conversation_history: Optiona
 
 
 # 이미지에 대체 텍스트를 추가하기 위한 프롬프트를 생성합니다.
-def create_alt_text_generation_prompt(screenshot_base64: str, html_content: str) -> List[Dict]:
+def create_alt_text_generation_prompt(
+        screenshot_base64: str,
+        html_content: str,
+        image_files: List[bytes]
+) -> List[Dict]:
     """
     대체 텍스트 생성을 위한 프롬프트를 구성합니다.
     HTML 문맥과 이미지(Base64)를 모두 포함합니다.
     """
+    # 프롬프트에 들어갈 이미지 목록
+    prompt_images = [
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{screenshot_base64}"}
+        }
+    ]
+
+    # 다운로드된 개별 이미지 파일들을 프롬프트에 추가
+    for img_bytes in image_files:
+        prompt_images.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{base64.b64encode(img_bytes).decode('utf-8')}"}
+        })
+
     return [
         {
             "role": "user",
@@ -45,21 +66,64 @@ def create_alt_text_generation_prompt(screenshot_base64: str, html_content: str)
                         f"\n\nHTML Content:\n{html_content}"
                     )
                 },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/jpeg;base64,{screenshot_base64}"
-                    }
-                }
+                *prompt_images
             ]
         }
     ]
 
 
+# --- 새로 추가된 단일 기능 함수 ---
+async def analyze_page_context_only(
+        openai_client: OpenAI,
+        html_content: str,
+        screenshot_file: bytes
+) -> str:
+    """
+    이미지 없이 페이지 맥락만 분석합니다.
+    """
+    try:
+        page_analysis_messages = create_page_analysis_prompt(html_content)
+
+        # 스크린샷은 멀티모달 프롬프트에 추가
+        page_analysis_messages[-1]['content'] = [
+            {"type": "text", "text": page_analysis_messages[-1]['content']},
+            {"type": "image_url",
+             "image_url": {"url": f"data:image/jpeg;base64,{base64.b64encode(screenshot_file).decode('utf-8')}"}}
+        ]
+
+        summary_response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=page_analysis_messages
+        )
+        return summary_response.choices[0].message.content
+    except Exception as e:
+        print(f"Error during page context analysis: {e}")
+        raise
+
+
+# 비동기 이미지 다운로드 함수
+async def download_image(url: str) -> Optional[bytes]:
+    """
+    주어진 URL에서 이미지를 다운로드합니다. 실패 시 None을 반환합니다.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, follow_redirects=True, timeout=10.0)
+            if response.status_code == 200:
+                # TODO: 필요시 다운로드된 이미지의 크기나 해상도를 조절하는 로직 추가
+                return response.content
+            else:
+                print(f"Warning: Failed to download image from {url} with status {response.status_code}")
+                return None
+        except httpx.HTTPError as exc:
+            print(f"Error downloading image from {url}: {exc}")
+            return None
+
+
 # 모든 기능을 통합하여 실행하고 결과를 반환하는 메인 함수입니다.
 async def analyze_and_generate_response(
         openai_client: OpenAI,
-        image_files: List[bytes],
+        image_urls: List[str],
         image_ids: List[str],
         screenshot_file: bytes,
         html_content: str,
@@ -77,20 +141,24 @@ async def analyze_and_generate_response(
         )
         page_description = summary_response.choices[0].message.content
 
-        # 2. 대체 텍스트 생성
+        # 2. 이미지 URL에서 바이트 데이터 다운로드
+        download_tasks = [download_image(url) for url in image_urls]
+        image_bytes_list = [img for img in await asyncio.gather(*download_tasks) if img is not None]
+
+        # 3. 대체 텍스트 생성
         batch_prompt = create_alt_text_generation_prompt(
             base64.b64encode(screenshot_file).decode('utf-8'),
-            html_content
+            html_content,
+            image_bytes_list
         )
         batch_response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=batch_prompt
         )
 
-        # AI가 반환한 수정된 HTML에서 alt 텍스트와 ID를 추출하여 매핑 (새로운 로직 필요)
-        # 이 예시에서는 응답을 JSON으로 받는 것으로 가정합니다.
+        # AI가 반환한 수정된 HTML에서 alt 텍스트를 추출하여 매핑하는 로직
         try:
-            # AI가 JSON 응답을 보낼 경우
+            # 예시: AI가 JSON 응답을 보낼 경우
             batch_results = json.loads(batch_response.choices[0].message.content)
             image_results_data = []
             for i, client_id in enumerate(image_ids):
@@ -98,16 +166,14 @@ async def analyze_and_generate_response(
                     result = batch_results[i]
                     image_results_data.append({
                         "client_id": client_id,
-                        "filename": f"image_{i}.jpg",  # 임시 파일명
+                        "filename": f"image_{i}.jpg",
                         "alt_text": result.get("alt_text", "")
                     })
         except json.JSONDecodeError:
-            # AI가 JSON 대신 HTML을 반환할 경우, HTML을 파싱하여 alt 텍스트를 추출하는 복잡한 로직이 필요
-            # 여기서는 편의를 위해 임시로 빈 리스트를 반환합니다.
             print("Warning: AI did not return a valid JSON response. Parsing failed.")
             image_results_data = []
 
-        # 3. 대화 기록 업데이트
+        # 4. 대화 기록 업데이트
         updated_history = conversation_history or []
         updated_history.append(Message(role="user", content="Analyze page and generate alt texts."))
         updated_history.append(Message(role="assistant", content=page_description))
