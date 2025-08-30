@@ -21,6 +21,7 @@
 
     <div class="btns">
       <button id="openPanel" class="btn primary">현재 탭에 패널 띄우기</button>
+      <button id="reqComprehensive" class="btn">종합 분석 요청</button>
     </div>
 
     <section class="panelBox">
@@ -38,9 +39,21 @@
       <label class="row"><input type="checkbox" id="useTTS" checked> TTS 사용</label>
       <button id="reqSummary" class="btn">현재 페이지 요약 요청</button>
     </section>
+
+    <hr/>
+
+    <section class="ttsBox">
+      <h2>TTS 데모 (팝업 전용)</h2>
+      <div class="row" style="gap:8px">
+        <button id="ttsPlay" class="btn">▶️ 본문 읽기</button>
+        <button id="ttsStop" class="btn">⏹️ 중지</button>
+      </div>
+      <p id="ttsStatus" class="muted" style="margin-top:8px;"></p>
+    </section>
   </main>
 
-  <footer class="ftr"><small>© <span id="year"></span> AI 웹서핑 도우미</small></footer>
-  <script src="Client.js"></script>
+  <footer class="ftr"><small>© <span id="year"></span> A11y Client</small></footer>
+  <!-- <script src="Client.js"></script> -->
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
