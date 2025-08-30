@@ -1,4 +1,5 @@
 # BalanSee: 시각 장애인용 AI 웹도우미
+![BalanSee 로고](./balansee.PNG)
 
 ## 1\. 개요
 
