@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="hdr">
-    <div class="brand"><span class="dot" aria-hidden="true"></span><strong>A11y Client</strong></div>
+    <div class="brand"><span class="dot" aria-hidden="true"></span><strong>시각장애인 AI 웹서핑 도우미</strong></div>
     <div class="row">
       <label class="switch"><input type="checkbox" id="power" checked /><span class="slider"></span></label>
       <button id="closeBtn" class="close" aria-label="닫기">✕</button>
@@ -16,23 +16,31 @@
   </header>
 
   <main class="main" id="main">
-    <h1>웹의 맥락을 한 번에 <span>요약·길잡이·대체 텍스트</span></h1>
+    <h1>웹의 맥락을 한 번에 <span>설명·길잡이·이미지 대체 텍스트</span></h1>
     <p class="muted">팝업으로 보거나, Alt+Shift+K 로 현재 페이지 위에 패널로 띄울 수 있어요.</p>
 
     <div class="btns">
       <button id="openPanel" class="btn primary">현재 탭에 패널 띄우기</button>
-      <button id="readDemo"  class="btn">현재 페이지 제목 읽기(TTS)</button>
     </div>
 
     <section class="panelBox">
-      <h2>패널 데모</h2>
-      <p id="summary" class="muted">패널 모드에서 요약 요청/표시.</p>
+      <h2>페이지 읽기 (TTS)</h2>
+      <div id="ttsStatus" class="muted"></div>
+      <div class="btns">
+        <button id="ttsPlay" class="btn primary">본문 읽기 시작</button>
+        <button id="ttsStop" class="btn">중지</button>
+      </div>
+    </section>
+
+    <section class="panelBox">
+      <h2>페이지 요약</h2>
+      <p id="summary" class="muted">현재 페이지의 요약 정보를 표시합니다.</p>
       <label class="row"><input type="checkbox" id="useTTS" checked> TTS 사용</label>
       <button id="reqSummary" class="btn">현재 페이지 요약 요청</button>
     </section>
   </main>
 
-  <footer class="ftr"><small>© <span id="year"></span> A11y Client</small></footer>
+  <footer class="ftr"><small>© <span id="year"></span> AI 웹서핑 도우미</small></footer>
   <script src="Client.js"></script>
 </body>
 </html>
