@@ -2,7 +2,20 @@
 
 let frame = null;
 
+// 패널을 로드하지 않을 URL 리스트
+const BLOCKED_URLS = [
+  "https://accounts.google.com",
+  "https://drive.google.com",
+  "https://mail.google.com"
+];
+
 function createPanel() {
+  // 현재 URL이 차단 목록에 있는지 확인
+  if (BLOCKED_URLS.some(url => window.location.href.startsWith(url))) {
+    console.warn("이 페이지는 보안 정책으로 인해 패널 생성이 차단되었습니다.");
+    return null;
+  }
+
   if (frame) return frame;
   frame = document.createElement("iframe");
   frame.src = chrome.runtime.getURL("Client.html") + "?mode=panel";
@@ -17,6 +30,7 @@ function createPanel() {
   document.documentElement.appendChild(frame);
   return frame;
 }
+
 function togglePanel() {
   if (frame && frame.isConnected) { frame.remove(); frame = null; }
   else createPanel();
@@ -41,25 +55,23 @@ function dataURLtoBlob(dataUrl) {
 }
 
 /**
- * 이미지 URL을 Blob 객체로 변환합니다. Data URL도 지원합니다.
- * @param {string} src - 이미지의 src 속성값
+ * 이미지 URL을 가져와 Blob 객체로 변환합니다. CORS 문제를 우회하기 위해 background script에 요청을 보냅니다.
+ * @param {string} src - 이미지의 src URL
  * @returns {Promise<Blob|null>} 변환된 Blob 객체 또는 실패 시 null
  */
 async function imageSrcToBlob(src) {
-  if (!src) return null;
-  try {
-    if (src.startsWith('data:')) {
-      return dataURLtoBlob(src);
+    try {
+        const response = await chrome.runtime.sendMessage({ type: 'FETCH_IMAGE', payload: src });
+        if (response.error) {
+            console.error(`이미지 fetch 실패 (${src}):`, response.error);
+            return null;
+        }
+        const blob = await fetch(response.payload).then(r => r.blob());
+        return blob;
+    } catch (e) {
+        console.error(`이미지 Blob 변환 중 예외 발생 (${src}):`, e);
+        return null;
     }
-    // 상대 경로를 절대 경로로 변환
-    const absoluteUrl = new URL(src, window.location.href).href;
-    const response = await fetch(absoluteUrl);
-    if (!response.ok) return null;
-    return await response.blob();
-  } catch (error) {
-    console.error(`이미지 로드 실패: ${src}`, error);
-    return null;
-  }
 }
 
 /**
@@ -67,13 +79,9 @@ async function imageSrcToBlob(src) {
  * @returns {string} 정제된 HTML 소스 코드 문자열
  */
 function getSanitizedHtml() {
-  // 현재 문서를 그대로 복제하여 원본 페이지에 영향을 주지 않도록 합니다.
   const clonedDoc = document.documentElement.cloneNode(true);
-
-  // 불필요한 태그(스크립트, 스타일, SVG)를 모두 제거합니다.
   clonedDoc.querySelectorAll('script, style, svg, noscript').forEach(el => el.remove());
 
-  // 모든 주석 노드를 찾아서 제거합니다.
   const iterator = document.createTreeWalker(clonedDoc, NodeFilter.SHOW_COMMENT);
   const commentsToRemove = [];
   let currentNode;
@@ -84,7 +92,6 @@ function getSanitizedHtml() {
 
   return clonedDoc.outerHTML;
 }
-
 
 /**
  * 페이지 종합 분석을 수행하고 결과를 처리합니다.
@@ -115,15 +122,22 @@ async function handleComprehensiveAnalysis() {
   if (imageElements.length === 0) {
     // Case 1: 이미지가 없으면 /page_context API 호출
     endpoint = '/analyses/page_context';
-    // formData에는 스크린샷과 HTML만 포함됩니다.
+    console.log("분석할 이미지가 없어 페이지 맥락 분석 API를 호출합니다.");
   } else {
     // Case 2: 이미지가 있으면 /batch_comprehensive API 호출
     endpoint = '/analyses/batch_comprehensive';
+    console.log(`페이지에서 발견된 이미지 수: ${imageElements.length}, 종합 분석 API를 호출합니다.`);
     
     imageElements.forEach((img, i) => {
       const clientId = `temp-img-${i}`;
       img.dataset.clientId = clientId;
-      imagesToAnalyze.push({ element: img, clientId, src: img.src });
+      
+      const absoluteUrl = new URL(img.src, window.location.href).href;
+      if (absoluteUrl.startsWith('chrome-extension://')) {
+        console.log(`확장 프로그램 내부 URL은 제외합니다: ${absoluteUrl}`);
+        return;
+      }
+      imagesToAnalyze.push({ element: img, clientId, src: absoluteUrl });
     });
 
     const imageBlobs = await Promise.all(imagesToAnalyze.map(img => imageSrcToBlob(img.src)));
@@ -140,9 +154,11 @@ async function handleComprehensiveAnalysis() {
     // image_ids가 비어있으면 전송하지 않아 422 오류를 방지합니다.
     if (imageIds.length > 0) {
       formData.append('image_ids', imageIds.join(','));
+      console.log("전송할 이미지 ID 목록:", imageIds);
     } else {
-       // 모든 이미지가 Blob 변환에 실패한 경우, 이미지가 없는 것으로 간주하고 다른 API를 호출합니다.
-       endpoint = '/analyses/page_context';
+        // 모든 이미지가 Blob 변환에 실패한 경우, 이미지가 없는 것으로 간주하고 다른 API를 호출합니다.
+        console.log("모든 이미지의 Blob 변환에 실패하여 페이지 맥락 분석 API로 전환합니다.");
+        endpoint = '/analyses/page_context';
     }
   }
 
@@ -152,7 +168,10 @@ async function handleComprehensiveAnalysis() {
       method: 'POST',
       body: formData,
     });
-    if (!response.ok) throw new Error(`서버 오류: ${response.status} - ${response.statusText}`);
+    if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`서버 오류: ${response.status} - ${response.statusText} - ${errorData}`);
+    }
     const result = await response.json();
 
     // batch_comprehensive API의 응답일 경우에만 alt 태그를 처리합니다.
@@ -179,51 +198,3 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (powerOn === false) return;
 
     switch (msg?.type) {
-      case "TOGGLE_CLIENT_PANEL":
-        togglePanel();
-        break;
-      
-      case "PING":
-        sendResponse({ payload: "PONG" });
-        break;
-
-      case "REQUEST_COMPREHENSIVE_ANALYSIS": // 오타 수정
-        const result = await handleComprehensiveAnalysis();
-        sendResponse({ payload: result });
-        break;
-        
-      case "REQUEST_PAGE_CONTENT":
-        sendResponse({ payload: document.body.innerText });
-        break;
-    }
-  })();
-  return true;
-});
-
-// 패널(iframe)과의 통신
-window.addEventListener("message", (e) => {
-  (async () => {
-    const { powerOn } = await chrome.storage.local.get("powerOn");
-    if (powerOn === false) return;
-
-    const data = e?.data;
-    if (!data || typeof data !== "object") return;
-    
-    switch (data.type) {
-      case "CLIENT_PANEL_CLOSE":
-        if (frame) { frame.remove(); frame = null; }
-        break;
-      
-      case "REQUEST_PAGE_SUMMARY": // 패널의 간단 요약 요청 (현재는 미사용, 추후 별도 API 구현 가능)
-        if (frame) {
-          const summary = "간단 요약 기능은 현재 비활성화되어 있습니다.";
-          frame.contentWindow?.postMessage({ type: "PAGE_SUMMARY", payload: summary }, "*");
-        }
-        break;
-
-      case "READ_TTS":
-        if (chrome.tts) chrome.tts.speak(String(data.text || ""), { rate: 1.0 });
-        break;
-    }
-  })();
-});
