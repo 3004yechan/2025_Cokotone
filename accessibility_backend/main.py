@@ -19,6 +19,11 @@ app = FastAPI(
     version="0.1.0"
 )
 
+origins = [
+    "chrome-extension://<jgdigmjnmlnlpojijmfoeopomkeghehg>",  # 확장 프로그램 ID
+    "http://127.0.0.1:8000"
+]
+
 
 @app.post("/analyses/batch_comprehensive", response_model=BatchAnalysisResponse)
 async def batch_comprehensive_analysis(
