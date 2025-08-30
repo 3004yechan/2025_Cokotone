@@ -41,28 +41,6 @@ function dataURLtoBlob(dataUrl) {
 }
 
 /**
- * 이미지 URL을 Blob 객체로 변환합니다. Data URL도 지원합니다.
- * @param {string} src - 이미지의 src 속성값
- * @returns {Promise<Blob|null>} 변환된 Blob 객체 또는 실패 시 null
- */
-async function imageSrcToBlob(src) {
-  if (!src) return null;
-  try {
-    if (src.startsWith('data:')) {
-      return dataURLtoBlob(src);
-    }
-    // 상대 경로를 절대 경로로 변환
-    const absoluteUrl = new URL(src, window.location.href).href;
-    const response = await fetch(absoluteUrl);
-    if (!response.ok) return null;
-    return await response.blob();
-  } catch (error) {
-    console.error(`이미지 로드 실패: ${src}`, error);
-    return null;
-  }
-}
-
-/**
  * 페이지 HTML에서 불필요한 요소를 제거하여 AI 분석에 적합한 형태로 만듭니다.
  * @returns {string} 정제된 HTML 소스 코드 문자열
  */
@@ -91,44 +69,55 @@ function getSanitizedHtml() {
  */
 async function handleComprehensiveAnalysis() {
   // 1. 대체 텍스트가 없는 이미지 찾기 및 ID 부여
-  const imagesToAnalyze = [];
   const imageElements = document.querySelectorAll('img:not([alt]), img[alt=""]');
+  const imageUrls = [];
+  const imageIds = [];
+
   imageElements.forEach((img, i) => {
     const clientId = `temp-img-${i}`;
     img.dataset.clientId = clientId;
-    imagesToAnalyze.push({ element: img, clientId, src: img.src });
+    
+    // 상대 경로를 절대 경로로 변환하여 저장합니다.
+    const absoluteUrl = new URL(img.src, window.location.href).href;
+    imageUrls.push(absoluteUrl);
+    imageIds.push(clientId);
   });
 
   // 2. 데이터 수집 (이미지 Blob, 스크린샷, HTML)
-  const imageBlobs = await Promise.all(imagesToAnalyze.map(img => imageSrcToBlob(img.src)));
   const screenshotDataUrl = await chrome.runtime.sendMessage({ type: 'CAPTURE_VISIBLE_TAB' });
   const screenshotBlob = screenshotDataUrl?.payload ? dataURLtoBlob(screenshotDataUrl.payload) : null;
   const htmlContent = getSanitizedHtml(); // 정제된 HTML 사용
 
+  if (!screenshotDataUrl?.payload) {
+    console.error("화면 캡처 실패:", screenshotDataUrl?.error);
+    return { page_description: '화면 캡처에 실패하여 분석을 진행할 수 없습니다. 일반 웹페이지에서 다시 시도해주세요.', error: true };
+  }
+  const screenshotBlob = dataURLtoBlob(screenshotDataUrl.payload);
+
   // 3. FormData 구성
+  const API_BASE_URL = "http://127.0.0.1:8000";
+  let endpoint = '';
   const formData = new FormData();
-  const imageIds = [];
-  
-  imagesToAnalyze.forEach((imgInfo, i) => {
-    const blob = imageBlobs[i];
-    if (blob) {
-      formData.append('image_files', blob, `image_${i}.${blob.type.split('/')[1] || 'png'}`);
-      imageIds.push(imgInfo.clientId);
-    }
-  });
-  
-  formData.append('image_ids', imageIds.join(',')); // 쉼표로 구분된 문자열로 전송
-  if (screenshotBlob) formData.append('screenshot_file', screenshotBlob, 'screenshot.png');
+  formData.append('screenshot_file', screenshotBlob, 'screenshot.png');
   formData.append('html_content', htmlContent);
+
+  if (imageElements.length === 0) {
+    endpoint = '/analyses/page_context';
+  } else {
+    endpoint = '/analyses/batch_comprehensive';
+    
+    // image_files 대신 image_urls와 image_ids를 쉼표로 구분하여 전송합니다.
+    formData.append('image_urls', imageUrls.join(','));
+    formData.append('image_ids', imageIds.join(','));
+  }
 
   // 4. 백엔드 API 요청
   try {
-    const API_BASE_URL = "http://127.0.0.1:8000";
-    const response = await fetch(`${API_BASE_URL}/analyses/batch_comprehensive`, {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       body: formData,
     });
-    if (!response.ok) throw new Error(`서버 오류: ${response.status}`);
+    if (!response.ok) throw new Error(`서버 오류: ${response.status} - ${response.statusText}`);
     const result = await response.json();
 
     // 5. 결과 처리: alt 태그 삽입
@@ -142,8 +131,8 @@ async function handleComprehensiveAnalysis() {
     return { page_description: result.page_description };
 
   } catch (error) {
-    console.error("종합 분석 API 요청 실패:", error);
-    return { page_description: `오류가 발생했습니다: ${error.message}` };
+    console.error(`API 요청 실패 (${endpoint}):`, error);
+    return { page_description: `오류가 발생했습니다: ${error.message}`, error: true };
   }
 }
 
