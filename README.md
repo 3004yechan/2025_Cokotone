@@ -26,24 +26,62 @@
 
 ## 4\. Usage
 
-### 설치 방법
+### Client
+<div markdown="1">
 
-1.  이 저장소를 `git clone` 받거나 ZIP 파일로 다운로드합니다.
-2.  Chrome 브라우저에서 주소창에 `chrome://extensions` 를 입력하여 확장 프로그램 관리 페이지로 이동합니다.
-3.  오른쪽 상단의 \*\*'개발자 모드(Developer mode)'\*\*를 활성화합니다.
-4.  왼쪽 상단의 **'압축해제된 확장 프로그램을 로드합니다(Load unpacked)'** 버튼을 클릭하고, 클라이언트 소스 코드(`client` 폴더)를 선택하여 확장 프로그램을 로드합니다.
-5.  백엔드 서버를 실행합니다. (`backend` 폴더에서 `uvicorn main:app --reload` 명령어 실행)
+    1. Clone 'client' repository
+    2. Enter chrome://extensions
+    3. Enable Developer Mode
+    4. Load extracted extension
 
-### 사용 방법
 
-1.  브라우저 툴바에 추가된 BalanSee 아이콘을 클릭하여 패널을 엽니다.
-2.  '분석 시작' 버튼을 누르면 현재 페이지의 이미지와 컨텍스트 분석이 시작됩니다.
-3.  분석이 완료되면, 대체 텍스트가 없던 이미지에 자동으로 설명이 적용되며, 패널에서 페이지 전체에 대한 요약 설명을 확인할 수 있습니다.
+</div>
+
+
+### Server
+<div markdown="1">
+    
+    cd backend
+
+</div>
+
 
 ## 5\. TEAM
 
-| 역할 | 이름 | GitHub |
-| :--- | :--- | :--- |
-| **Frontend** | OOO | [@github\_id](https://www.google.com/search?q=https://github.com/github_id) |
-| **Backend** | OOO | [@github\_id](https://www.google.com/search?q=https://github.com/github_id) |
-| **Database** | OOO | [@github\_id](https://www.google.com/search?q=https://github.com/github_id) |
+<div align='center'>
+  
+<table>
+    <thead>
+        <tr>
+            <th colspan="5"> Balansee </th>
+        </tr>
+    </thead>
+    <tbody>
+         <tr>
+           <td align='center'><a href="https://github.com/3004yechan" target='_blank'><img src="https://avatars.githubusercontent.com/u/62199985?v=4" width="100" height="100"></td>
+           <td align='center'><a href="https://github.com/chaelyn-kim" target='_blank'><img src="https://avatars.githubusercontent.com/u/229458887?v=4" width="100" height="100"></td>
+           <td align='center'><a href="https://github.com/showtime3763" target='_blank'><img src="https://avatars.githubusercontent.com/u/199572864?v=4" width="100" height="100"></td>
+           <td align='center'><a href="https://github.com/gksgpals" target='_blank'><img src="https://avatars.githubusercontent.com/u/173118693?v=4" width="100" height="100"></td>
+         </tr>
+         <tr>
+           <td align='center'>차예찬</td>
+           <td align='center'>김채린</td>
+           <td align='center'>이지형</td>
+           <td align='center'>한혜민</td>
+         </tr>
+         <tr>
+           <td align='center'>🎨</td>
+           <td align='center'>🎨</td>
+           <td align='center'>⚙️</td>
+           <td align='center'>💾</td>
+         </tr>
+         <tr>
+           <td align='center'>Front-End</td>
+           <td align='center'>Front-end</td>
+           <td align='center'>Backend</td>
+           <td align='center'>Database</td>
+         </tr>
+    </tbody>
+</table>
+
+</div> 
