@@ -28,7 +28,7 @@ async def batch_comprehensive_analysis(
         html_content: Optional[str] = Form(None, description="페이지의 전체 HTML 소스 코드"),
         conversation_history: Optional[str] = Form(None, description="이전 대화 기록 (JSON 문자열)"),
         openai_client: OpenAI = Depends(get_openai_client),
-        db_client: Generator = Depends(get_db_client)  # db_client 타입은 추후 확정
+        #db_client: Generator = Depends(get_db_client)  # db_client 타입은 추후 확정
 ):
     """
     다중 이미지에 대한 종합 분석 및 대체 텍스트를 생성합니다.
