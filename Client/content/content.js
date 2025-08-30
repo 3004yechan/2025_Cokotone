@@ -63,6 +63,30 @@ async function imageSrcToBlob(src) {
 }
 
 /**
+ * 페이지 HTML에서 불필요한 요소를 제거하여 AI 분석에 적합한 형태로 만듭니다.
+ * @returns {string} 정제된 HTML 소스 코드 문자열
+ */
+function getSanitizedHtml() {
+  // 현재 문서를 그대로 복제하여 원본 페이지에 영향을 주지 않도록 합니다.
+  const clonedDoc = document.documentElement.cloneNode(true);
+
+  // 불필요한 태그(스크립트, 스타일, SVG)를 모두 제거합니다.
+  clonedDoc.querySelectorAll('script, style, svg, noscript').forEach(el => el.remove());
+
+  // 모든 주석 노드를 찾아서 제거합니다.
+  const iterator = document.createTreeWalker(clonedDoc, NodeFilter.SHOW_COMMENT);
+  const commentsToRemove = [];
+  let currentNode;
+  while (currentNode = iterator.nextNode()) {
+    commentsToRemove.push(currentNode);
+  }
+  commentsToRemove.forEach(comment => comment.remove());
+
+  return clonedDoc.outerHTML;
+}
+
+
+/**
  * 페이지 종합 분석을 수행하고 결과를 처리합니다.
  */
 async function handleComprehensiveAnalysis() {
@@ -79,7 +103,7 @@ async function handleComprehensiveAnalysis() {
   const imageBlobs = await Promise.all(imagesToAnalyze.map(img => imageSrcToBlob(img.src)));
   const screenshotDataUrl = await chrome.runtime.sendMessage({ type: 'CAPTURE_VISIBLE_TAB' });
   const screenshotBlob = screenshotDataUrl?.payload ? dataURLtoBlob(screenshotDataUrl.payload) : null;
-  const htmlContent = document.documentElement.outerHTML;
+  const htmlContent = getSanitizedHtml(); // 정제된 HTML 사용
 
   // 3. FormData 구성
   const formData = new FormData();
