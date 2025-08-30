@@ -15,7 +15,7 @@
 
 [![BalanSee 시연 영상](https://youtu.be/JHOvNbyrmGM/0.jpg)](https://youtu.be/JHOvNbyrmGM)
 
-> 위 이미지를 클릭하면 시연 영상을 확인할 수 있습니다.
+> 위 이미지를 클릭하면 시연 영상을 확인할 수 있습니다. 
 
 ## 4\. Usage
 
